@@ -39,7 +39,7 @@ extern void pseudo_random_genrate(uint8_t *dest, unsigned size);
  */
 /*-----------------------------------------------------------*/
 #define BT_MESH_FEAT_SUPPORTED_TEMP         ( \
-                                                BT_MESH_FEAT_FRIEND | \
+                                                /*BT_MESH_FEAT_FRIEND | */\
                                                 0 \
                                             )
 #include "feature_correct.h"
@@ -94,9 +94,9 @@ void get_mesh_adv_name(u8 *len, u8 **data)
 #define MAC_ADDRESS_STRING_SIZE     (sizeof(Mac_Address) * 2)
 #define SECRET_STRING_SIZE          (sizeof(Secret) - 1)
 
-#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf0d
-#define PRODUCT_ID                  12623
-#define DEVICE_SECRET               "753053e923f30c9f0bc4405cf13ebda6"
+#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf15
+#define PRODUCT_ID                  6001957
+#define DEVICE_SECRET               "373b4b7c95070534c90e05e2f3902e00"
 
 /*
  * @brief Publication Declarations
@@ -134,9 +134,9 @@ BT_MESH_MODEL_PUB_DEFINE(gen_onoff_pub_srv, NULL, 2 + 2);
  * detail on https://www.aligenie.com/doc/357554/iv5it7
  */
 /*-----------------------------------------------------------*/
-#define BT_COMP_ID_LF                           0x01A8 // Alibaba
-#define BT_MESH_VENDOR_MODEL_ID_SRV             0x0000
-#define BT_MESH_VENDOR_MODEL_ID_CLI             0x0001
+#define BT_COMP_ID_LF                           0x01A8      // Alibaba
+#define BT_MESH_VENDOR_MODEL_ID_SRV             0x01A80000      //0x0000
+#define BT_MESH_VENDOR_MODEL_ID_CLI             0x01A80001      //0x0001
 
 /*
  * @brief AliGenie Vendor Model Operation Codes
@@ -161,6 +161,8 @@ BT_MESH_MODEL_PUB_DEFINE(gen_onoff_pub_srv, NULL, 2 + 2);
 /*-----------------------------------------------------------*/
 #define ATTR_TYPE_UNIX_TIME                     0xF01F
 #define ATTR_TYPE_SET_TIMEOUT                   0xF010
+#define ATTR_TYPE_SET_PERIOD_TIMEOUT            0xF011
+#define ATTR_TYPE_DELETE_TIMEOUT                0xF012
 
 struct __unix_time {
     u32 Opcode: 24,
@@ -181,6 +183,63 @@ struct __set_timeout {
     } _GNU_PACKED_ param[1] ;
 } _GNU_PACKED_;
 
+struct __set_period_timeout {
+    u32 Opcode: 24,
+        TID: 8;
+    u16 Attr_Type;
+    struct __period_param {
+        u8  index;
+        u16 _24h_timer;
+        u8  schedule;
+        u16 attr_type;
+        u8  attr_para;
+    } _GNU_PACKED_ period_param[1] ;
+} _GNU_PACKED_;
+
+struct __delete_time {
+    u32 Opcode: 24,
+        TID: 8;
+    u16 Attr_Type;
+    u8 index;
+} _GNU_PACKED_;
+
+struct __timer_success {
+    u32 Opcode: 24,
+        TID: 8;
+    u16 Attr_Type;
+    u8  event;
+    u8  index;
+} _GNU_PACKED_;
+
+struct __timer_param {
+        u8 tid;
+        u8 index;
+        u8 timer_cnt;
+        bool onoff;
+};
+
+struct __onoff_repo{
+    u32 Opcode: 24,
+        TID: 8;
+    u16 Attr_Type;
+    bool OnOff;
+} _GNU_PACKED_;
+
+struct __indicate_msg{
+    u32 Opcode: 24,
+        TID: 8;
+    u16 Attr_Type;
+    u8 Event;
+    u8 EventParam;
+} _GNU_PACKED_;
+
+static bool led_flag = 0;
+static u8 indicate_tid = 0x80;
+static u16 timer_index[20];
+struct __timer_param timer_param[20];
+static u8 timer_cnt = -1;
+static struct bt_mesh_model vendor_server_models[];
+static bool indicate_flag[256];
 
 /*
  * @brief Access Payload Fields
@@ -232,6 +291,7 @@ const u8 led_use_port[] = {
 
 };
 
+
 /*
  * @brief Generic OnOff Model Server Message Handlers
  *
@@ -252,10 +312,11 @@ static void respond_messsage_schedule(u16 *delay, u16 *duration, void *cb_data)
      *  a random delay between 20 and 500 milliseconds.
      */
     u16 delay_ms;
-    struct bt_mesh_msg_ctx *ctx = cb_data;
+    //struct bt_mesh_msg_ctx *ctx = cb_data;
+    u16 dst_addr = (u16)cb_data;
 
     pseudo_random_genrate((u8 *)&delay_ms, 2);
-    if (BT_MESH_ADDR_IS_UNICAST(ctx->recv_dst)) {
+    if (BT_MESH_ADDR_IS_UNICAST(dst_addr)) {
         delay_ms = btctler_get_rand_from_assign_range(delay_ms, 20, 50);
     } else {
         delay_ms = btctler_get_rand_from_assign_range(delay_ms, 20, 200);
@@ -282,7 +343,7 @@ static void gen_onoff_get(struct bt_mesh_model *model,
     bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_GEN_ONOFF_STATUS);
     buffer_add_u8_at_tail(&msg, onoff_state->current);
 
-    if (bt_mesh_model_send(model, ctx, &msg, &rsp_msg_cb, ctx)) {
+    if (bt_mesh_model_send(model, ctx, &msg, &rsp_msg_cb, (void *)ctx->recv_dst)) {
         log_info("Unable to send On Off Status response\n");
     }
 }
@@ -302,6 +363,8 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
 
     gpio_pin_write(onoff_state->led_gpio_pin,
                    onoff_state->current);
+    led_flag = onoff_state->current;
+    printf("\n   tmall set led to %d    \n", led_flag);
 
 #if 0
     /*
@@ -340,18 +403,6 @@ static void gen_onoff_set(struct bt_mesh_model *model,
 }
 
 /*
- * @brief OnOff Model Server Op Dispatch Table
- */
-/*-----------------------------------------------------------*/
-static const struct bt_mesh_model_op gen_onoff_srv_op[] = {
-    { BT_MESH_MODEL_OP_GEN_ONOFF_GET, 0, gen_onoff_get },
-    { BT_MESH_MODEL_OP_GEN_ONOFF_SET, 2, gen_onoff_set },
-    { BT_MESH_MODEL_OP_GEN_ONOFF_SET_UNACK, 2, gen_onoff_set_unack },
-    BT_MESH_MODEL_OP_END,
-};
-
-
-/*
  * @brief AliGenie Vendor Model Message Handlers
  *
  * 定时功能 detail on https://www.aligenie.com/doc/357554/ovzn6v
@@ -374,6 +425,92 @@ static void vendor_attr_status_send(struct bt_mesh_model *model,
     }
 }
 
+void indicate_tid_get(u8 *indicate_tid)
+{
+    if(indicate_tid >= 0x80 && indicate_tid <= 0xbf)
+    {
+        *indicate_tid += 1;
+    }
+    else
+    {
+        *indicate_tid = 0x80;
+    }
+}
+
+static void timer_handler(struct __timer_param *param)
+{
+    indicate_tid_get(&indicate_tid);
+
+    struct __timer_success timer_success = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+            .TID = indicate_tid,
+            .Attr_Type = 0xf009,
+            .event = 0x11,
+            .index = param->index,
+    };
+    indicate_flag[timer_success.TID] = 0;
+
+    indicate_tid_get(&indicate_tid);
+    struct __onoff_repo onoff_repo = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+            .TID = indicate_tid,
+            .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
+            .OnOff = param->onoff,
+    };
+    indicate_flag[onoff_repo.TID] = 0;
+
+    struct bt_mesh_msg_ctx ctx = {
+        .addr = 0xf000,
+    };
+
+
+    gpio_pin_write(LED0_GPIO_PIN, param->onoff);
+    led_flag = param->onoff;
+
+    printf("timer_cnt = %d, timer_index = 0x%x, onoff = %d", param->timer_cnt, timer_index[param->timer_cnt], param->onoff);
+
+    sys_timer_remove(timer_index[param->timer_cnt]);
+
+    if(!indicate_flag[timer_success.TID])
+    {
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &timer_success, sizeof(timer_success));
+    }
+    if(!indicate_flag[onoff_repo.TID])
+    {
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
+    }
+}
+
+static void set_timer_start(u8      tid,
+                            u32     delay_s,
+                            u8      index,
+                            bool    onoff)
+{
+
+    timer_cnt += 1;
+
+    timer_param[timer_cnt].tid       = tid;
+    timer_param[timer_cnt].index     = index;
+    timer_param[timer_cnt].onoff     = onoff;
+    timer_param[timer_cnt].timer_cnt = timer_cnt;
+
+
+    printf("time_cnt = %d\r\n", timer_cnt);
+    timer_index[timer_cnt] = sys_timer_add(&timer_param[timer_cnt], timer_handler, delay_s * 1000);
+
+    log_info("timer set delay %d second\r\n", delay_s);
+
+}
+
+static void vendor_attr_cfm(struct bt_mesh_model *model,
+                            struct bt_mesh_msg_ctx *ctx,
+                            struct net_buf_simple *buf)
+{
+    u8 cfm_tid = buffer_pull_u8_from_head(buf);
+    indicate_flag[cfm_tid] = 1;
+
+    log_info("receice vendor_attr_confirm, indicate_tid = \r\n", cfm_tid);
+}
 static void vendor_attr_get(struct bt_mesh_model *model,
                             struct bt_mesh_msg_ctx *ctx,
                             struct net_buf_simple *buf)
@@ -390,14 +527,16 @@ static void vendor_attr_set(struct bt_mesh_model *model,
     log_info("receive vendor_attr_set, len except opcode =0x%x", buf->len);
     log_info_hexdump(buf->data, buf->len);
 
+    static struct UTC_TIME cur_utc;
     u8 tid = buffer_pull_u8_from_head(buf);
     u16 Attr_Type = buffer_pull_le16_from_head(buf);
     switch (Attr_Type) {
     case ATTR_TYPE_UNIX_TIME: {
         u32 time = buffer_pull_le32_from_head(buf);
 
-        struct UTC_TIME cur_utc = unix32_to_UTC_beijing(time);
-        log_info("北京时间: %d/%d/%d %02d:%02d:%02d, 星期 %d",
+
+        cur_utc = unix32_to_UTC_beijing(time);
+        log_info("\n        __unix_time BeiJing time: %d/%d/%d %02d:%02d:%02d, weekday %d   \n",
                  cur_utc.year, cur_utc.month, cur_utc.day,
                  cur_utc.hour, cur_utc.minute, cur_utc.second,
                  cur_utc.weekday);
@@ -408,7 +547,6 @@ static void vendor_attr_set(struct bt_mesh_model *model,
             .Attr_Type = Attr_Type,
             .time = time,
         };
-
         vendor_attr_status_send(model, ctx, &unix_time, sizeof(unix_time));
     }
     break;
@@ -419,12 +557,18 @@ static void vendor_attr_set(struct bt_mesh_model *model,
         u16 attr_type = buffer_pull_le16_from_head(buf);
         u8 attr_para = buffer_pull_u8_from_head(buf);
 
-        struct UTC_TIME cur_utc = unix32_to_UTC_beijing(time);
-        log_info("北京时间: %d/%d/%d %02d:%02d:%02d, 星期 %d",
-                 cur_utc.year, cur_utc.month, cur_utc.day,
-                 cur_utc.hour, cur_utc.minute, cur_utc.second,
-                 cur_utc.weekday);
-        log_info("attr_type=0x%x, attr_para=0x%x", attr_type, attr_para);
+        struct UTC_TIME set_cur_utc = unix32_to_UTC_beijing(time);
+        log_info("\n    __set_timeout BeiJinG time: %d/%d/%d %02d:%02d:%02d, weekday %d\n",
+                 set_cur_utc.year, set_cur_utc.month, set_cur_utc.day,
+                 set_cur_utc.hour, set_cur_utc.minute, set_cur_utc.second,
+                 set_cur_utc.weekday);
+
+        u32 delay_s = ((set_cur_utc.hour - cur_utc.hour) * 3600) + ((set_cur_utc.minute - cur_utc.minute) * 60) + (set_cur_utc.second - cur_utc.second);
+
+        printf("\n  delay_s = %d, switch set to %d\n", delay_s, attr_para);
+
+        set_timer_start(tid, delay_s, index, attr_para);
+        printf("\n      model = 0x%x, ctx.addr = 0x%x\r\n", model, ctx->addr);
 
         struct __set_timeout set_timeout = {
             .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
@@ -437,24 +581,78 @@ static void vendor_attr_set(struct bt_mesh_model *model,
                 .attr_para = attr_para,
             },
         };
-
         vendor_attr_status_send(model, ctx, &set_timeout, sizeof(set_timeout));
     }
     break;
 
+    case ATTR_TYPE_SET_PERIOD_TIMEOUT: {
+        u8 index = buffer_pull_u8_from_head(buf);
+        u16 _24h_timer = buffer_pull_le16_from_head(buf);
+        u8 schedule = buffer_pull_u8_from_head(buf);
+        u16 attr_type = buffer_pull_le16_from_head(buf);
+        u8 attr_para = buffer_pull_u8_from_head(buf);
+
+        log_info("\n    set_period_timeout BeiJinG time: %02d:%02d, weekday %d\n",
+                 (_24h_timer & 0x0fff)/60, (_24h_timer & 0x0fff)%60, schedule);
+
+        struct __set_period_timeout set_period_timeout = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
+            .TID = tid,
+            .Attr_Type = Attr_Type,
+            .period_param[0] = {
+                .index = index,
+                ._24h_timer = _24h_timer,
+                .schedule = schedule,
+                .attr_type = attr_type,
+                .attr_para = attr_para,
+            },
+        };
+        printf("\n  time = 0x%x\n", _24h_timer);
+        printf("\n          set_period opcode = 0x%x, Attr_Type = 0x%x, para = 0x%x, index = 0x%x       \n", set_period_timeout.Opcode, Attr_Type, attr_para, index);
+        vendor_attr_status_send(model, ctx, &set_period_timeout, sizeof(set_period_timeout));
+    }
+    break;
+
+    case ATTR_TYPE_DELETE_TIMEOUT: {
+        u8 index = buffer_pull_u8_from_head(buf);
+        struct __delete_time delete_time = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
+            .TID = tid,
+            .Attr_Type = Attr_Type,
+            .index = index,
+        };
+        printf("delete timeout for index = 0x%x\r\n", index);
+        vendor_attr_status_send(model, ctx, &delete_time, sizeof(delete_time));
+    }
+    break;
+
     default :
+        printf("\n\n\n\n      default attr = 0x%x \n\n\n\n", Attr_Type);
         break;
     }
 
 }
+
+
+/*
+ * @brief OnOff Model Server Op Dispatch Table
+ */
+/*-----------------------------------------------------------*/
+static const struct bt_mesh_model_op gen_onoff_srv_op[] = {
+    { BT_MESH_MODEL_OP_GEN_ONOFF_GET, 0, gen_onoff_get },
+    { BT_MESH_MODEL_OP_GEN_ONOFF_SET, 2, gen_onoff_set },
+    { BT_MESH_MODEL_OP_GEN_ONOFF_SET_UNACK, 2, gen_onoff_set_unack },
+    BT_MESH_MODEL_OP_END,
+};
 
 /*
  * @brief Vendor Model Server Op Dispatch Table
  */
 /*-----------------------------------------------------------*/
 static const struct bt_mesh_model_op vendor_srv_op[] = {
-    { VENDOR_MSG_ATTR_GET, ACCESS_OP_SIZE, vendor_attr_get },
-    { VENDOR_MSG_ATTR_SET, ACCESS_OP_SIZE, vendor_attr_set },
+    { VENDOR_MSG_ATTR_GET,     ACCESS_OP_SIZE, vendor_attr_get },
+    { VENDOR_MSG_ATTR_SET,     ACCESS_OP_SIZE, vendor_attr_set },
+    { VENDOR_MSG_ATTR_CONFIRM, 1, vendor_attr_cfm },
     BT_MESH_MODEL_OP_END,
 };
 
@@ -473,6 +671,7 @@ static struct bt_mesh_model vendor_server_models[] = {
     BT_MESH_MODEL_VND(BT_COMP_ID_LF, BT_MESH_VENDOR_MODEL_ID_CLI, NULL, NULL, NULL),
     BT_MESH_MODEL_VND(BT_COMP_ID_LF, BT_MESH_VENDOR_MODEL_ID_SRV, vendor_srv_op, NULL, &onoff_state[0]),
 };
+
 
 /*
  * @brief LED to Server Model Assigmnents
@@ -629,15 +828,66 @@ static void button_pressed_worker(struct _switch *sw)
     }
 }
 
+
+
+void led_set(void)
+{
+    led_flag = !led_flag;
+
+    indicate_tid_get(&indicate_tid);
+
+    gpio_pin_write(LED0_GPIO_PIN, led_flag);
+    log_info("state set to %d, indicate_tid now = %d\r\n", led_flag, indicate_tid);
+    struct bt_mesh_msg_ctx ctx = {
+            .addr = 0xf000,
+        };
+
+    struct __onoff_repo onoff_repo = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
+            .TID = indicate_tid,
+            .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
+            .OnOff = led_flag,
+        };
+    indicate_flag[indicate_tid] = 0;
+
+    if(!indicate_flag[indicate_tid])
+    {
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
+    }
+}
+
+void iot_reset()
+{
+    bt_mesh_reset();
+    p33_soft_reset();
+}
+
 void input_key_handler(u8 key_status, u8 key_number)
 {
     struct _switch press_switch;
 
     log_info("key_number=0x%x", key_number);
 
-    if ((key_number == 2) && (key_status == KEY_EVENT_LONG)) {
+    if ((key_number == 2) && (key_status == KEY_EVENT_CLICK)) {
+
         log_info("\n  <bt_mesh_reset> \n");
-        bt_mesh_reset();
+        struct __indicate_msg HardReset_msg = {
+            .Opcode     = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+            .TID        = indicate_tid,
+            .Attr_Type  = 0xf009,
+            .Event      = 0x23,
+        };
+        struct bt_mesh_msg_ctx ctx = {
+            .addr = 0xf000,
+        };
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &HardReset_msg, sizeof(HardReset_msg));
+        sys_timer_add(NULL, iot_reset, 1000 * 3);
+
+        return;
+    }
+
+    if ((key_number == 0) &&  (key_status == KEY_EVENT_CLICK)) {
+        led_set();
         return;
     }
 
@@ -662,6 +912,32 @@ void input_key_handler(u8 key_status, u8 key_number)
     }
 }
 
+void iot_init()
+{
+    indicate_tid_get(&indicate_tid);
+    struct bt_mesh_msg_ctx ctx = {
+            .addr = 0xf000,
+        };
+
+    struct __onoff_repo state_msg = {
+            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+            .TID = indicate_tid,
+            .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
+            .OnOff = led_flag,
+        };
+     vendor_attr_status_send(&vendor_server_models[1], &ctx, &state_msg, sizeof(state_msg));
+
+     indicate_tid_get(&indicate_tid);
+     struct __indicate_msg indicate_msg = {
+         .Opcode     = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+         .TID        = indicate_tid,
+         .Attr_Type  = 0xf009,
+         .Event      = 0x03,
+     };
+     vendor_attr_status_send(&vendor_server_models[1], &ctx, &indicate_msg, sizeof(indicate_msg));
+
+}
+
 /*
  * @brief Mesh Profile Setup
  */
@@ -681,6 +957,8 @@ static void mesh_init(void)
     settings_load();
 
     bt_mesh_prov_enable(BT_MESH_PROV_GATT | BT_MESH_PROV_ADV);
+
+    iot_init();     //indicate_state
 }
 
 void bt_ble_init(void)

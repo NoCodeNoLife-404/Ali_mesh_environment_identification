@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_layout_file>
+	<FileVersion major="1" minor="0" />
+	<ActiveTarget name="Release" />
+	<File name="..\..\..\..\cpu\bd29\charge.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="9969" topLine="353" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\sys_time.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="85" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\timer.h" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1351" topLine="46" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\app_core.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="465" topLine="46" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\btstack\third_party\baidu\dueros_dma_pb.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1017" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\cpu\bd29\uart_test.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="621" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\driver\cpu\bd29\asm\gpio.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="7217" topLine="234" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\crypto_toolbox\bigint_impl.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="592" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\btctrler\adapter\include\common\sys_timer.h" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="166" topLine="2" />
+		</Cursor>
+	</File>
+	<File name="..\..\examples\AliGenie_socket.c" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="7341" topLine="222" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\generic\typedef.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2339" topLine="70" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\system\crypto_toolbox\sha256.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1369" topLine="37" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\cpu\bd29\app_timer.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2506" topLine="103" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\driver\cpu\bd29\asm\rtc.h" open="0" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="260" topLine="2" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\driver\cpu\bd29\asm\cpu.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="4354" topLine="219" />
+		</Cursor>
+	</File>
+	<File name="..\..\..\..\include_lib\driver\cpu\bd29\asm\clock.h" open="0" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1729" topLine="57" />
+		</Cursor>
+	</File>
+</CodeBlocks_layout_file>

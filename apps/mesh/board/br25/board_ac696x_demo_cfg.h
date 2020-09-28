@@ -22,7 +22,7 @@
 //*********************************************************************************//
 #define TCFG_UART0_ENABLE					ENABLE_THIS_MOUDLE                     //串口打印模块使能
 #define TCFG_UART0_RX_PORT					NO_CONFIG_PORT                         //串口接收脚配置（用于打印可以选择NO_CONFIG_PORT）
-#define TCFG_UART0_TX_PORT  				IO_PORTC_04                            //串口发送脚配置
+#define TCFG_UART0_TX_PORT  				IO_PORT_DP //串口发送脚配置
 #define TCFG_UART0_BAUDRATE  				1000000                                //串口波特率配置
 
 //*********************************************************************************//
@@ -125,7 +125,7 @@
 
 #define TCFG_IOKEY_POWER_CONNECT_WAY		ONE_PORT_TO_LOW    //按键一端接低电平一端接IO
 
-#define TCFG_IOKEY_POWER_ONE_PORT			IO_PORTB_01        //IO按键端口
+#define TCFG_IOKEY_POWER_ONE_PORT			IO_PORTA_03         //IO按键端口
 
 #define TCFG_IOKEY_PREV_CONNECT_WAY			ONE_PORT_TO_LOW  //按键一端接低电平一端接IO
 #define TCFG_IOKEY_PREV_ONE_PORT			IO_PORTB_00
@@ -137,14 +137,14 @@
 //                                 adkey 配置                                      //
 //*********************************************************************************//
 #define TCFG_ADKEY_ENABLE                   ENABLE_THIS_MOUDLE //DISABLE_THIS_MOUDLE //是否使能AD按键
-#define TCFG_ADKEY_PORT                     IO_PORTB_01         //AD按键端口(需要注意选择的IO口是否支持AD功能)
+#define TCFG_ADKEY_PORT                     IO_PORTB_07 //AD按键端口(需要注意选择的IO口是否支持AD功能)
 /*AD通道选择，需要和AD按键的端口相对应:
     AD_CH_PA1    AD_CH_PA3    AD_CH_PA4    AD_CH_PA5
     AD_CH_PA9    AD_CH_PA1    AD_CH_PB1    AD_CH_PB4
     AD_CH_PB6    AD_CH_PB7    AD_CH_DP     AD_CH_DM
     AD_CH_PB2
 */
-#define TCFG_ADKEY_AD_CHANNEL               AD_CH_PB1
+#define TCFG_ADKEY_AD_CHANNEL               AD_CH_PB7
 #define TCFG_ADKEY_EXTERN_UP_ENABLE         ENABLE_THIS_MOUDLE //是否使用外部上拉
 
 #if TCFG_ADKEY_EXTERN_UP_ENABLE

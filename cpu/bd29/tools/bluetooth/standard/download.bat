@@ -7,7 +7,7 @@ copy ..\..\script.ver  .
 copy ..\..\uboot.boot  .
 copy ..\..\ota.bin .
 
-..\..\isd_download.exe -tonorflash -dev bd29 -boot 0x2000 -div8 -wait 300 -uboot uboot.boot -app app.bin cfg_tool.bin  
+..\..\isd_download.exe -tonorflash -dev bd29 -boot 0x2000 -div8 -wait 300 -uboot uboot.boot -app app.bin cfg_tool.bin  -format all
 :: -format all
 ::-reboot 2500
 

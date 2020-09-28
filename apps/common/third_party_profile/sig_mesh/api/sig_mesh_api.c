@@ -95,9 +95,9 @@ u32 buffer_head_init(u32 opcode)
         /* 2-byte OpCode */
         return sys_cpu_to_be16(opcode);
     }
-
     /* 3-byte OpCode */
     u8 b0 = (opcode >> 16) & 0xff;
+
     u16 cid = sys_cpu_to_le16(opcode & 0xffff);
 
     return cid << 8 | b0;
