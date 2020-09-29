@@ -4140,7 +4140,7 @@
 	"device/key_driver.h"
 	"debug.h"
 
-1601369754 source:c:\users\zpc20-018\desktop\ali_mesh_identification\ali_mesh\apps\mesh\examples\aligenie_socket.c
+1601372573 source:c:\users\zpc20-018\desktop\ali_mesh_identification\ali_mesh\apps\mesh\examples\aligenie_socket.c
 	"btstack/bluetooth.h"
 	"system/includes.h"
 	"bt_common.h"

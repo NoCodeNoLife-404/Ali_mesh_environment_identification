@@ -483,22 +483,22 @@ static void timer_handler(struct __timer_param *param)
 {
     indicate_tid_get(&indicate_tid);
 
-    struct __timer_success timer_success = {
-            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
-            .TID = indicate_tid,
-            .Attr_Type = 0xf009,
-            .event = 0x11,
-            .index = param->index,
-    };
+    static struct __timer_success timer_success;
+    timer_success.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
+    timer_success.TID = indicate_tid;
+    timer_success.Attr_Type = 0xf009;
+    timer_success.event = 0x11;
+    timer_success.index = param->index;
+
     indicate_flag[timer_success.TID] = 0;
 
     indicate_tid_get(&indicate_tid);
-    struct __onoff_repo onoff_repo = {
-            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
-            .TID = indicate_tid,
-            .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
-            .OnOff = param->onoff,
-    };
+    static struct __onoff_repo onoff_repo;
+    onoff_repo.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
+    onoff_repo.TID = indicate_tid;
+    onoff_repo.Attr_Type = 0x0100;
+    onoff_repo.OnOff = param->onoff;
+
     indicate_flag[onoff_repo.TID] = 0;
 
     struct bt_mesh_msg_ctx ctx = {
@@ -892,12 +892,12 @@ void led_set(void)
         .addr = 0xf000,
     };
 
-    struct __onoff_repo onoff_repo = {
-        .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
-        .TID = indicate_tid,
-        .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
-        .OnOff = led_flag,
-    };
+    static struct __onoff_repo onoff_repo;
+    onoff_repo.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
+    onoff_repo.TID = indicate_tid;
+    onoff_repo.Attr_Type = 0x0100;
+    onoff_repo.OnOff = led_flag;
+
 
     indicate_flag[indicate_tid] = 0;
 
@@ -908,7 +908,7 @@ void led_set(void)
     comfirm_check_param[timer_cnt].len = sizeof(onoff_repo);
 
     vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
-    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 1000);
 }
 
 void iot_reset()
