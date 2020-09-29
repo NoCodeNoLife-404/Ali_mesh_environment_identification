@@ -233,10 +233,19 @@ struct __indicate_msg{
     u8 EventParam;
 } _GNU_PACKED_;
 
+struct __comfirm_check_param{
+    u8 resend_cnt;
+    u8 timer_cnt;
+    u8 indicate_tid;
+    void *buf;
+    u16 len;
+};
+
 static bool led_flag = 0;
 static u8 indicate_tid = 0x80;
 static u16 timer_index[20];
-struct __timer_param timer_param[20];
+static struct __timer_param timer_param[20];
+static struct __comfirm_check_param comfirm_check_param[20];
 static u8 timer_cnt = -1;
 static struct bt_mesh_model vendor_server_models[];
 static bool indicate_flag[256];
@@ -427,7 +436,7 @@ static void vendor_attr_status_send(struct bt_mesh_model *model,
 
 void indicate_tid_get(u8 *indicate_tid)
 {
-    if(indicate_tid >= 0x80 && indicate_tid <= 0xbf)
+    if(*indicate_tid >= 0x80 && *indicate_tid <= 0xbf)
     {
         *indicate_tid += 1;
     }
@@ -436,6 +445,39 @@ void indicate_tid_get(u8 *indicate_tid)
         *indicate_tid = 0x80;
     }
 }
+void timer_cnt_get(u8 *timer_cnt)
+{
+    if(*timer_cnt >= -1 && *timer_cnt <= 18)
+    {
+        *timer_cnt += 1;
+    }
+    else
+    {
+        *timer_cnt = 0;
+    }
+}
+
+void comfirm_check(struct __comfirm_check_param *param)
+{
+    struct bt_mesh_msg_ctx ctx = {
+        .addr = 0xf000,
+    };
+    if(!indicate_flag[param->indicate_tid])
+    {
+        param->resend_cnt += 1;
+        if(param->resend_cnt >= 2)
+        {
+            sys_timer_remove(timer_index[param->timer_cnt]);
+            printf("resen msg fail\r\n");
+        }
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, param->buf, param->len);
+    }
+    else
+    {
+        sys_timer_remove(timer_index[param->timer_cnt]);
+    }
+}
+
 
 static void timer_handler(struct __timer_param *param)
 {
@@ -463,7 +505,6 @@ static void timer_handler(struct __timer_param *param)
         .addr = 0xf000,
     };
 
-
     gpio_pin_write(LED0_GPIO_PIN, param->onoff);
     led_flag = param->onoff;
 
@@ -471,14 +512,25 @@ static void timer_handler(struct __timer_param *param)
 
     sys_timer_remove(timer_index[param->timer_cnt]);
 
-    if(!indicate_flag[timer_success.TID])
-    {
-        vendor_attr_status_send(&vendor_server_models[1], &ctx, &timer_success, sizeof(timer_success));
-    }
-    if(!indicate_flag[onoff_repo.TID])
-    {
-        vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
-    }
+    //timing success msg send and check comfirm
+    timer_cnt_get(&timer_cnt);
+    comfirm_check_param[timer_cnt].resend_cnt = 0;
+    comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
+    comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
+    comfirm_check_param[timer_cnt].buf = &timer_success;
+    comfirm_check_param[timer_cnt].len = sizeof(timer_success);
+    vendor_attr_status_send(&vendor_server_models[1], &ctx, &timer_success, sizeof(timer_success));
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 3000);
+
+    //onoff_state msg send and check comfirm
+    timer_cnt_get(&timer_cnt);
+    comfirm_check_param[timer_cnt].resend_cnt = 0;
+    comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
+    comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
+    comfirm_check_param[timer_cnt].buf = &onoff_repo;
+    comfirm_check_param[timer_cnt].len = sizeof(onoff_repo);
+    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 3000);
 }
 
 static void set_timer_start(u8      tid,
@@ -487,7 +539,7 @@ static void set_timer_start(u8      tid,
                             bool    onoff)
 {
 
-    timer_cnt += 1;
+    timer_cnt_get(&timer_cnt);
 
     timer_param[timer_cnt].tid       = tid;
     timer_param[timer_cnt].index     = index;
@@ -508,8 +560,8 @@ static void vendor_attr_cfm(struct bt_mesh_model *model,
 {
     u8 cfm_tid = buffer_pull_u8_from_head(buf);
     indicate_flag[cfm_tid] = 1;
-
-    log_info("receice vendor_attr_confirm, indicate_tid = \r\n", cfm_tid);
+    printf(" crm net_idx = 0x%x, app_idx = 0x%x, recv_dst = 0x%x",ctx->net_idx, ctx->app_idx, ctx->recv_dst);
+    log_info("receice vendor_attr_confirm, indicate_tid = %d\r\n", cfm_tid);
 }
 static void vendor_attr_get(struct bt_mesh_model *model,
                             struct bt_mesh_msg_ctx *ctx,
@@ -534,7 +586,6 @@ static void vendor_attr_set(struct bt_mesh_model *model,
     case ATTR_TYPE_UNIX_TIME: {
         u32 time = buffer_pull_le32_from_head(buf);
 
-
         cur_utc = unix32_to_UTC_beijing(time);
         log_info("\n        __unix_time BeiJing time: %d/%d/%d %02d:%02d:%02d, weekday %d   \n",
                  cur_utc.year, cur_utc.month, cur_utc.day,
@@ -547,6 +598,7 @@ static void vendor_attr_set(struct bt_mesh_model *model,
             .Attr_Type = Attr_Type,
             .time = time,
         };
+
         vendor_attr_status_send(model, ctx, &unix_time, sizeof(unix_time));
     }
     break;
@@ -568,7 +620,6 @@ static void vendor_attr_set(struct bt_mesh_model *model,
         printf("\n  delay_s = %d, switch set to %d\n", delay_s, attr_para);
 
         set_timer_start(tid, delay_s, index, attr_para);
-        printf("\n      model = 0x%x, ctx.addr = 0x%x\r\n", model, ctx->addr);
 
         struct __set_timeout set_timeout = {
             .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
@@ -828,32 +879,36 @@ static void button_pressed_worker(struct _switch *sw)
     }
 }
 
-
-
 void led_set(void)
 {
     led_flag = !led_flag;
 
     indicate_tid_get(&indicate_tid);
+    timer_cnt_get(&timer_cnt);
 
     gpio_pin_write(LED0_GPIO_PIN, led_flag);
     log_info("state set to %d, indicate_tid now = %d\r\n", led_flag, indicate_tid);
     struct bt_mesh_msg_ctx ctx = {
-            .addr = 0xf000,
-        };
+        .addr = 0xf000,
+    };
 
     struct __onoff_repo onoff_repo = {
-            .Opcode = buffer_head_init(VENDOR_MSG_ATTR_STATUS),
-            .TID = indicate_tid,
-            .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
-            .OnOff = led_flag,
-        };
+        .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+        .TID = indicate_tid,
+        .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
+        .OnOff = led_flag,
+    };
+
     indicate_flag[indicate_tid] = 0;
 
-    if(!indicate_flag[indicate_tid])
-    {
-        vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
-    }
+    comfirm_check_param[timer_cnt].resend_cnt = 0;
+    comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
+    comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
+    comfirm_check_param[timer_cnt].buf = &onoff_repo;
+    comfirm_check_param[timer_cnt].len = sizeof(onoff_repo);
+
+    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
 }
 
 void iot_reset()
@@ -914,28 +969,29 @@ void input_key_handler(u8 key_status, u8 key_number)
 
 void iot_init()
 {
-    indicate_tid_get(&indicate_tid);
-    struct bt_mesh_msg_ctx ctx = {
+    if(bt_mesh_is_provisioned())
+    {
+        indicate_tid_get(&indicate_tid);
+        struct bt_mesh_msg_ctx ctx = {
             .addr = 0xf000,
         };
-
-    struct __onoff_repo state_msg = {
+        struct __onoff_repo state_msg = {
             .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
             .TID = indicate_tid,
             .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
             .OnOff = led_flag,
         };
-     vendor_attr_status_send(&vendor_server_models[1], &ctx, &state_msg, sizeof(state_msg));
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &state_msg, sizeof(state_msg));
 
-     indicate_tid_get(&indicate_tid);
-     struct __indicate_msg indicate_msg = {
-         .Opcode     = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
-         .TID        = indicate_tid,
-         .Attr_Type  = 0xf009,
-         .Event      = 0x03,
-     };
-     vendor_attr_status_send(&vendor_server_models[1], &ctx, &indicate_msg, sizeof(indicate_msg));
-
+        indicate_tid_get(&indicate_tid);
+        struct __indicate_msg indicate_msg = {
+            .Opcode     = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+            .TID        = indicate_tid,
+            .Attr_Type  = 0xf009,
+            .Event      = 0x03,
+        };
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &indicate_msg, sizeof(indicate_msg));
+    }
 }
 
 /*
