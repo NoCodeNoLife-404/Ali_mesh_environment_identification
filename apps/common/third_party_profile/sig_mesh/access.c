@@ -470,6 +470,10 @@ static const struct bt_mesh_model_op *find_op(struct bt_mesh_model *models,
 
         *model = &models[i];
 
+        if(NULL == (*model)->op) {
+            continue;
+        }
+
         if (BT_MESH_ADDR_IS_GROUP(dst) ||
             BT_MESH_ADDR_IS_VIRTUAL(dst)) {
             if (!bt_mesh_model_find_group(*model, dst)) {
@@ -592,6 +596,7 @@ void bt_mesh_model_recv(struct bt_mesh_net_rx *rx, struct net_buf_simple *buf)
 
         op = find_op(models, count, rx->ctx.recv_dst, rx->ctx.app_idx,
                      opcode, &model);
+
         if (op) {
             struct net_buf_simple_state state;
 

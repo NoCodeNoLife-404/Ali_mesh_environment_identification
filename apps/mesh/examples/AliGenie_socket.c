@@ -94,9 +94,9 @@ void get_mesh_adv_name(u8 *len, u8 **data)
 #define MAC_ADDRESS_STRING_SIZE     (sizeof(Mac_Address) * 2)
 #define SECRET_STRING_SIZE          (sizeof(Secret) - 1)
 
-#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf15
+#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf13
 #define PRODUCT_ID                  6001957
-#define DEVICE_SECRET               "373b4b7c95070534c90e05e2f3902e00"
+#define DEVICE_SECRET               "876366343e27565ec15d0bd0db9ea8e5"
 
 /*
  * @brief Publication Declarations
@@ -340,77 +340,6 @@ static const struct bt_mesh_send_cb rsp_msg_cb = {
     /* .user_intercept = NULL, */
 };
 
-static void gen_onoff_get(struct bt_mesh_model *model,
-                          struct bt_mesh_msg_ctx *ctx,
-                          struct net_buf_simple *buf)
-{
-    NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
-    struct onoff_state *onoff_state = model->user_data;
-
-    log_info("addr 0x%04x onoff 0x%02x\n",
-             bt_mesh_model_elem(model)->addr, onoff_state->current);
-    bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_GEN_ONOFF_STATUS);
-    buffer_add_u8_at_tail(&msg, onoff_state->current);
-
-    if (bt_mesh_model_send(model, ctx, &msg, &rsp_msg_cb, (void *)ctx->recv_dst)) {
-        log_info("Unable to send On Off Status response\n");
-    }
-}
-
-static void gen_onoff_set_unack(struct bt_mesh_model *model,
-                                struct bt_mesh_msg_ctx *ctx,
-                                struct net_buf_simple *buf)
-{
-    struct net_buf_simple *msg = model->pub->msg;
-    struct onoff_state *onoff_state = model->user_data;
-    int err;
-
-    onoff_state->current = buffer_pull_u8_from_head(buf);
-    log_info("addr 0x%02x state 0x%02x\n",
-             bt_mesh_model_elem(model)->addr, onoff_state->current);
-    /* log_info_hexdump((u8 *)onoff_state, sizeof(*onoff_state)); */
-
-    gpio_pin_write(onoff_state->led_gpio_pin,
-                   onoff_state->current);
-    led_flag = onoff_state->current;
-    printf("\n   tmall set led to %d    \n", led_flag);
-
-#if 0
-    /*
-     * If a server has a publish address, it is required to
-     * publish status on a state change
-     *
-     * See Mesh Profile Specification 3.7.6.1.2
-     *
-     * Only publish if there is an assigned address
-     */
-
-    if (onoff_state->previous != onoff_state->current &&
-        model->pub->addr != BT_MESH_ADDR_UNASSIGNED) {
-        log_info("publish last 0x%02x cur 0x%02x\n",
-                 onoff_state->previous, onoff_state->current);
-        onoff_state->previous = onoff_state->current;
-        bt_mesh_model_msg_init(msg,
-                               BT_MESH_MODEL_OP_GEN_ONOFF_STATUS);
-        buffer_add_u8_at_tail(msg, onoff_state->current);
-        err = bt_mesh_model_publish(model);
-        if (err) {
-            log_info("bt_mesh_model_publish err %d\n", err);
-        }
-    }
-#endif /*  */
-}
-
-static void gen_onoff_set(struct bt_mesh_model *model,
-                          struct bt_mesh_msg_ctx *ctx,
-                          struct net_buf_simple *buf)
-{
-    log_info("gen_onoff_set\n");
-
-    gen_onoff_set_unack(model, ctx, buf);
-    gen_onoff_get(model, ctx, buf);
-}
-
 /*
  * @brief AliGenie Vendor Model Message Handlers
  *
@@ -465,7 +394,7 @@ void comfirm_check(struct __comfirm_check_param *param)
     if(!indicate_flag[param->indicate_tid])
     {
         param->resend_cnt += 1;
-        if(param->resend_cnt >= 2)
+        if(param->resend_cnt >= 75)     //最多重传75次，即30秒重传时间
         {
             sys_timer_remove(timer_index[param->timer_cnt]);
             printf("resen msg fail\r\n");
@@ -478,6 +407,96 @@ void comfirm_check(struct __comfirm_check_param *param)
     }
 }
 
+static void gen_onoff_get(struct bt_mesh_model *model,
+                          struct bt_mesh_msg_ctx *ctx,
+                          struct net_buf_simple *buf)
+{
+    NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
+    struct onoff_state *onoff_state = model->user_data;
+
+    log_info("addr 0x%04x onoff 0x%02x\n",
+             bt_mesh_model_elem(model)->addr, onoff_state->current);
+    bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_GEN_ONOFF_STATUS);
+    buffer_add_u8_at_tail(&msg, onoff_state->current);
+
+    if (bt_mesh_model_send(model, ctx, &msg, &rsp_msg_cb, (void *)ctx->recv_dst)) {
+        log_info("Unable to send On Off Status response\n");
+    }
+}
+
+static void gen_onoff_set_unack(struct bt_mesh_model *model,
+                                struct bt_mesh_msg_ctx *ctx,
+                                struct net_buf_simple *buf)
+{
+    struct net_buf_simple *msg = model->pub->msg;
+    struct onoff_state *onoff_state = model->user_data;
+    int err;
+
+    onoff_state->current = buffer_pull_u8_from_head(buf);
+    log_info("addr 0x%02x state 0x%02x\n",
+             bt_mesh_model_elem(model)->addr, onoff_state->current);
+    /* log_info_hexdump((u8 *)onoff_state, sizeof(*onoff_state)); */
+
+    gpio_pin_write(onoff_state->led_gpio_pin,
+                   onoff_state->current);
+    led_flag = onoff_state->current;
+    printf("\n   tmall set led to %d    \n", led_flag);
+
+    indicate_tid_get(&indicate_tid);
+    timer_cnt_get(&timer_cnt);
+    indicate_flag[indicate_tid] = 0;
+
+    static struct __onoff_repo onoff_repo_set;
+    onoff_repo_set.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
+    onoff_repo_set.TID = indicate_tid;
+    onoff_repo_set.Attr_Type = 0x0100;
+    onoff_repo_set.OnOff = led_flag;
+
+
+    comfirm_check_param[timer_cnt].resend_cnt = 0;
+    comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
+    comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
+    comfirm_check_param[timer_cnt].buf = &onoff_repo_set;
+    comfirm_check_param[timer_cnt].len = sizeof(onoff_repo_set);
+
+    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo_set, sizeof(onoff_repo_set));
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
+
+#if 0
+    /*
+     * If a server has a publish address, it is required to
+     * publish status on a state change
+     *
+     * See Mesh Profile Specification 3.7.6.1.2
+     *
+     * Only publish if there is an assigned address
+     */
+
+    if (onoff_state->previous != onoff_state->current &&
+        model->pub->addr != BT_MESH_ADDR_UNASSIGNED) {
+        log_info("publish last 0x%02x cur 0x%02x\n",
+                 onoff_state->previous, onoff_state->current);
+        onoff_state->previous = onoff_state->current;
+        bt_mesh_model_msg_init(msg,
+                               BT_MESH_MODEL_OP_GEN_ONOFF_STATUS);
+        buffer_add_u8_at_tail(msg, onoff_state->current);
+        err = bt_mesh_model_publish(model);
+        if (err) {
+            log_info("bt_mesh_model_publish err %d\n", err);
+        }
+    }
+#endif /*  */
+}
+
+static void gen_onoff_set(struct bt_mesh_model *model,
+                          struct bt_mesh_msg_ctx *ctx,
+                          struct net_buf_simple *buf)
+{
+    log_info("gen_onoff_set\n");
+
+    gen_onoff_set_unack(model, ctx, buf);
+    gen_onoff_get(model, ctx, buf);
+}
 
 static void timer_handler(struct __timer_param *param)
 {
@@ -493,13 +512,13 @@ static void timer_handler(struct __timer_param *param)
     indicate_flag[timer_success.TID] = 0;
 
     indicate_tid_get(&indicate_tid);
-    static struct __onoff_repo onoff_repo;
-    onoff_repo.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
-    onoff_repo.TID = indicate_tid;
-    onoff_repo.Attr_Type = 0x0100;
-    onoff_repo.OnOff = param->onoff;
+    static struct __onoff_repo onoff_repo_handle;
+    onoff_repo_handle.Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT);
+    onoff_repo_handle.TID = indicate_tid;
+    onoff_repo_handle.Attr_Type = 0x0100;
+    onoff_repo_handle.OnOff = param->onoff;
 
-    indicate_flag[onoff_repo.TID] = 0;
+    indicate_flag[onoff_repo_handle.TID] = 0;
 
     struct bt_mesh_msg_ctx ctx = {
         .addr = 0xf000,
@@ -520,17 +539,17 @@ static void timer_handler(struct __timer_param *param)
     comfirm_check_param[timer_cnt].buf = &timer_success;
     comfirm_check_param[timer_cnt].len = sizeof(timer_success);
     vendor_attr_status_send(&vendor_server_models[1], &ctx, &timer_success, sizeof(timer_success));
-    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 3000);
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
 
     //onoff_state msg send and check comfirm
     timer_cnt_get(&timer_cnt);
     comfirm_check_param[timer_cnt].resend_cnt = 0;
     comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
     comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
-    comfirm_check_param[timer_cnt].buf = &onoff_repo;
-    comfirm_check_param[timer_cnt].len = sizeof(onoff_repo);
-    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
-    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 3000);
+    comfirm_check_param[timer_cnt].buf = &onoff_repo_handle;
+    comfirm_check_param[timer_cnt].len = sizeof(onoff_repo_handle);
+    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo_handle, sizeof(onoff_repo_handle));
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
 }
 
 static void set_timer_start(u8      tid,
@@ -907,8 +926,10 @@ void led_set(void)
     comfirm_check_param[timer_cnt].buf = &onoff_repo;
     comfirm_check_param[timer_cnt].len = sizeof(onoff_repo);
 
+    printf(" vendor &model = 0x%x, vendor model = 0x%x", &vendor_server_models[1], vendor_server_models[1]);
+
     vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo, sizeof(onoff_repo));
-    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 1000);
+    timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
 }
 
 void iot_reset()
