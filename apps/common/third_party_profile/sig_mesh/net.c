@@ -1384,7 +1384,7 @@ void bt_mesh_net_recv(struct net_buf_simple *data, s8_t rssi,
     struct bt_mesh_net_rx rx = { .ctx.recv_rssi = rssi };
     struct net_buf_simple_state state;
 
-    BT_DBG("rssi %d net_if %u", rssi, net_if);
+    printf("rssi %d net_if %u", rssi, net_if);               // BT_DBG("rssi %d net_if %u", rssi, net_if);********test
 
     if (!bt_mesh_is_provisioned()) {
         return;

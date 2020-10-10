@@ -397,8 +397,9 @@ void comfirm_check(struct __comfirm_check_param *param)
         if(param->resend_cnt >= 75)     //最多重传75次，即30秒重传时间
         {
             sys_timer_remove(timer_index[param->timer_cnt]);
-            printf("resen msg fail\r\n");
+            printf("resen msg more than 75 times\r\n");
         }
+        printf("indicate_flag[ %d ] = %d\r\n", param->indicate_tid, indicate_flag[param->indicate_tid]);
         vendor_attr_status_send(&vendor_server_models[1], &ctx, param->buf, param->len);
     }
     else
@@ -459,7 +460,7 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
     comfirm_check_param[timer_cnt].buf = &onoff_repo_set;
     comfirm_check_param[timer_cnt].len = sizeof(onoff_repo_set);
 
-    vendor_attr_status_send(&vendor_server_models[1], &ctx, &onoff_repo_set, sizeof(onoff_repo_set));
+    vendor_attr_status_send(&vendor_server_models[1], ctx, &onoff_repo_set, sizeof(onoff_repo_set));
     timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
 
 #if 0
@@ -579,9 +580,9 @@ static void vendor_attr_cfm(struct bt_mesh_model *model,
 {
     u8 cfm_tid = buffer_pull_u8_from_head(buf);
     indicate_flag[cfm_tid] = 1;
-    printf(" crm net_idx = 0x%x, app_idx = 0x%x, recv_dst = 0x%x",ctx->net_idx, ctx->app_idx, ctx->recv_dst);
     log_info("receice vendor_attr_confirm, indicate_tid = %d\r\n", cfm_tid);
 }
+
 static void vendor_attr_get(struct bt_mesh_model *model,
                             struct bt_mesh_msg_ctx *ctx,
                             struct net_buf_simple *buf)
@@ -917,7 +918,6 @@ void led_set(void)
     onoff_repo.Attr_Type = 0x0100;
     onoff_repo.OnOff = led_flag;
 
-
     indicate_flag[indicate_tid] = 0;
 
     comfirm_check_param[timer_cnt].resend_cnt = 0;
@@ -988,6 +988,24 @@ void input_key_handler(u8 key_status, u8 key_number)
     }
 }
 
+static void period_msg(void *empty)
+{
+    struct bt_mesh_msg_ctx ctx = {
+        .addr = 0xf000,
+    };
+    struct __onoff_repo period_indicat = {
+        .Opcode = buffer_head_init(VENDOR_MSG_ATTR_INDICAT),
+        .TID = indicate_tid,
+        .Attr_Type = 0x0100,    //设备开关状态，与generic onoff绑定
+        .OnOff = led_flag,
+    };
+
+    if(bt_mesh_is_provisioned())
+    {
+        vendor_attr_status_send(&vendor_server_models[1], &ctx, &period_indicat, sizeof(period_indicat));
+    }
+}
+
 void iot_init()
 {
     if(bt_mesh_is_provisioned())
@@ -1013,6 +1031,7 @@ void iot_init()
         };
         vendor_attr_status_send(&vendor_server_models[1], &ctx, &indicate_msg, sizeof(indicate_msg));
     }
+    sys_timer_add(NULL, period_msg, 180 * 1000);
 }
 
 /*
