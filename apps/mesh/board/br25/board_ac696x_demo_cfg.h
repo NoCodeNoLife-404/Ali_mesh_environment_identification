@@ -121,11 +121,11 @@
 //*********************************************************************************//
 //                                 iokey 配置                                      //
 //*********************************************************************************//
-#define TCFG_IOKEY_ENABLE					DISABLE_THIS_MOUDLE //是否使能IO按键
+#define TCFG_IOKEY_ENABLE					ENABLE_THIS_MOUDLE //是否使能IO按键
 
 #define TCFG_IOKEY_POWER_CONNECT_WAY		ONE_PORT_TO_LOW    //按键一端接低电平一端接IO
 
-#define TCFG_IOKEY_POWER_ONE_PORT			IO_PORTA_03         //IO按键端口
+#define TCFG_IOKEY_POWER_ONE_PORT			IO_PORTB_07         //IO按键端口
 
 #define TCFG_IOKEY_PREV_CONNECT_WAY			ONE_PORT_TO_LOW  //按键一端接低电平一端接IO
 #define TCFG_IOKEY_PREV_ONE_PORT			IO_PORTB_00
@@ -136,7 +136,7 @@
 //*********************************************************************************//
 //                                 adkey 配置                                      //
 //*********************************************************************************//
-#define TCFG_ADKEY_ENABLE                   ENABLE_THIS_MOUDLE //DISABLE_THIS_MOUDLE //是否使能AD按键
+#define TCFG_ADKEY_ENABLE                   DISABLE_THIS_MOUDLE //DISABLE_THIS_MOUDLE //是否使能AD按键
 #define TCFG_ADKEY_PORT                     IO_PORTB_07 //AD按键端口(需要注意选择的IO口是否支持AD功能)
 /*AD通道选择，需要和AD按键的端口相对应:
     AD_CH_PA1    AD_CH_PA3    AD_CH_PA4    AD_CH_PA5

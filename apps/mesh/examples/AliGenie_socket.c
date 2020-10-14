@@ -94,9 +94,9 @@ void get_mesh_adv_name(u8 *len, u8 **data)
 #define MAC_ADDRESS_STRING_SIZE     (sizeof(Mac_Address) * 2)
 #define SECRET_STRING_SIZE          (sizeof(Secret) - 1)
 
-#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf13
+#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf16
 #define PRODUCT_ID                  6001957
-#define DEVICE_SECRET               "876366343e27565ec15d0bd0db9ea8e5"
+#define DEVICE_SECRET               "ef68b3da3a48c81397275632de457043"
 
 /*
  * @brief Publication Declarations
@@ -296,7 +296,7 @@ static struct onoff_state onoff_state[] = {
 
 const u8 led_use_port[] = {
 
-    IO_PORTA_01,
+    IO_PORTA_00,
 
 };
 
@@ -397,9 +397,10 @@ void comfirm_check(struct __comfirm_check_param *param)
         if(param->resend_cnt >= 75)     //最多重传75次，即30秒重传时间
         {
             sys_timer_remove(timer_index[param->timer_cnt]);
-            printf("resen msg more than 75 times\r\n");
+            printf("resend msg more than 75 times\r\n");
         }
         printf("indicate_flag[ %d ] = %d\r\n", param->indicate_tid, indicate_flag[param->indicate_tid]);
+        printf("\n  param->buf.tid = %d, timer_cnt = %d \n", ((struct __onoff_repo *)(param->buf))->TID, param->timer_cnt);
         vendor_attr_status_send(&vendor_server_models[1], &ctx, param->buf, param->len);
     }
     else
@@ -453,12 +454,13 @@ static void gen_onoff_set_unack(struct bt_mesh_model *model,
     onoff_repo_set.Attr_Type = 0x0100;
     onoff_repo_set.OnOff = led_flag;
 
-
     comfirm_check_param[timer_cnt].resend_cnt = 0;
     comfirm_check_param[timer_cnt].timer_cnt = timer_cnt;
-    comfirm_check_param[timer_cnt].indicate_tid = indicate_tid;
+    comfirm_check_param[timer_cnt].indicate_tid = onoff_repo_set.TID;
     comfirm_check_param[timer_cnt].buf = &onoff_repo_set;
     comfirm_check_param[timer_cnt].len = sizeof(onoff_repo_set);
+
+    printf("\n  set unack tid = %d, timer_cnt = %d, param.tid = %d  \n", onoff_repo_set.TID, timer_cnt, comfirm_check_param[timer_cnt].indicate_tid);
 
     vendor_attr_status_send(&vendor_server_models[1], ctx, &onoff_repo_set, sizeof(onoff_repo_set));
     timer_index[timer_cnt] = sys_timer_add(&comfirm_check_param[timer_cnt], comfirm_check, 400);
@@ -908,6 +910,12 @@ void led_set(void)
 
     gpio_pin_write(LED0_GPIO_PIN, led_flag);
     log_info("state set to %d, indicate_tid now = %d\r\n", led_flag, indicate_tid);
+
+    if(!bt_mesh_is_provisioned())
+    {
+        printf("no provision, not send state indicate\r\n");
+        return;
+    }
     struct bt_mesh_msg_ctx ctx = {
         .addr = 0xf000,
     };
@@ -944,7 +952,7 @@ void input_key_handler(u8 key_status, u8 key_number)
 
     log_info("key_number=0x%x", key_number);
 
-    if ((key_number == 2) && (key_status == KEY_EVENT_CLICK)) {
+    if ((key_number == 0) && (key_status == KEY_EVENT_LONG)) {
 
         log_info("\n  <bt_mesh_reset> \n");
         struct __indicate_msg HardReset_msg = {

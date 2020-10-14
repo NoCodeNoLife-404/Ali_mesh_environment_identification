@@ -6,7 +6,7 @@
  * @brief Config adv bearer hardware param when node send messages
  */
 /*-----------------------------------------------------------*/
-const u16 config_bt_mesh_node_msg_adv_interval = ADV_SCAN_UNIT(10); // unit: ms
+const u16 config_bt_mesh_node_msg_adv_interval = ADV_SCAN_UNIT(5); // unit: ms
 const u16 config_bt_mesh_node_msg_adv_duration = 100; // unit: ms
 
 /**
@@ -49,18 +49,18 @@ const u8 config_bt_mesh_friend_queue_size = 2;
  */
 /*-----------------------------------------------------------*/
 _WEAK_
-const u8 config_bt_mesh_adv_buf_count = 5;
+const u8 config_bt_mesh_adv_buf_count = 15;      // 5
 
 /**
  * @brief Config PB-ADV param
  */
 /*-----------------------------------------------------------*/
-const u16 config_bt_mesh_pb_adv_interval = ADV_SCAN_UNIT(15); // unit: ms
-const u16 config_bt_mesh_pb_adv_duration = 40; // unit: ms
+const u16 config_bt_mesh_pb_adv_interval = ADV_SCAN_UNIT(15); // unit: ms       15
+const u16 config_bt_mesh_pb_adv_duration = 40; // unit: ms      40
 const u32 config_bt_mesh_prov_retransmit_timeout = 300; // unit: ms
 const u8 config_bt_mesh_prov_transaction_timeout = 30; // unit: s
 const u8 config_bt_mesh_prov_link_close_timeout = 3; // unit: s
-const u8 config_bt_mesh_prov_protocol_timeout = 60; // unit: s
+const u8 config_bt_mesh_prov_protocol_timeout = 60; // unit: s      60      配对不上时的等待时间
 
 /**
  * @brief Config beacon param

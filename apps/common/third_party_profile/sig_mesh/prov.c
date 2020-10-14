@@ -372,10 +372,11 @@ static void gen_prov_ack_send(u8_t xact_id)
 
     BT_DBG("xact_id %u", xact_id);
 
-    if (pending_ack == xact_id) {
-        BT_DBG("Not sending duplicate ack");
-        return;
-    }
+    printf("\n      pending_ack = %x, xact_id = %x      \n", pending_ack, xact_id);
+//    if (pending_ack == xact_id) {
+//        BT_DBG("Not sending duplicate ack");
+//        return;
+//    }
 
     buf = adv_buf_create();
     if (!buf) {

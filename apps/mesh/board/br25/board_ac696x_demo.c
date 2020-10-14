@@ -84,6 +84,52 @@ const struct adkey_platform_data adkey_data = {
 };
 #endif
 
+/************************** IO KEY ****************************/
+#if TCFG_IOKEY_ENABLE
+const struct iokey_port iokey_list[] = {
+	{
+		.connect_way = TCFG_IOKEY_POWER_CONNECT_WAY,          //IO按键的连接方式
+		.key_type.one_io.port = TCFG_IOKEY_POWER_ONE_PORT,    //IO按键对应的引脚
+		.key_value = 0,                                       //按键值
+	},
+
+	{
+		.connect_way = TCFG_IOKEY_PREV_CONNECT_WAY,
+		.key_type.one_io.port = TCFG_IOKEY_PREV_ONE_PORT,
+		.key_value = 1,
+	},
+
+	{
+		.connect_way = TCFG_IOKEY_NEXT_CONNECT_WAY,
+		.key_type.one_io.port = TCFG_IOKEY_NEXT_ONE_PORT,
+		.key_value = 2,
+	},
+};
+const struct iokey_platform_data iokey_data = {
+	.enable = TCFG_IOKEY_ENABLE,                              //是否使能IO按键
+	.num = ARRAY_SIZE(iokey_list),                            //IO按键的个数
+	.port = iokey_list,                                       //IO按键参数表
+};
+
+#if MULT_KEY_ENABLE
+//组合按键消息映射表
+//配置注意事项:单个按键按键值需要按照顺序编号,如power:0, prev:1, next:2
+//bit_value = BIT(0) | BIT(1) 指按键值为0和按键值为1的两个按键被同时按下,
+//remap_value = 3指当这两个按键被同时按下后重新映射的按键值;
+const struct key_remap iokey_remap_table[] = {
+	{.bit_value = BIT(0) | BIT(1), .remap_value = 3},
+	{.bit_value = BIT(0) | BIT(2), .remap_value = 4},
+	{.bit_value = BIT(1) | BIT(2), .remap_value = 5},
+};
+
+const struct key_remap_data iokey_remap_data = {
+	.remap_num = ARRAY_SIZE(iokey_remap_table),
+	.table = iokey_remap_table,
+};
+#endif
+
+#endif
+
 void debug_uart_init(const struct uart_platform_data *data)
 {
 #if TCFG_UART0_ENABLE

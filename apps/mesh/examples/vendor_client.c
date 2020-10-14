@@ -134,7 +134,7 @@ static struct onoff_state onoff_state[] = {
 
 const u8 led_use_port[1] = {
 
-    IO_PORTA_01,
+    IO_PORTA_00,
 
 };
 
