@@ -94,9 +94,9 @@ void get_mesh_adv_name(u8 *len, u8 **data)
 #define MAC_ADDRESS_STRING_SIZE     (sizeof(Mac_Address) * 2)
 #define SECRET_STRING_SIZE          (sizeof(Secret) - 1)
 
-#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf16
+#define CUR_DEVICE_MAC_ADDR         0x28fa7a42bf14
 #define PRODUCT_ID                  6001957
-#define DEVICE_SECRET               "ef68b3da3a48c81397275632de457043"
+#define DEVICE_SECRET               "e3a3d73b8ebf93619cdd56ce469d3cb9"
 
 /*
  * @brief Publication Declarations
@@ -946,10 +946,24 @@ void iot_reset()
     p33_soft_reset();
 }
 
+static u16 blink_id;
+
+void led_blink()
+{
+    static bool blink_flag = 0;
+    static blink_cnt = 0;
+    blink_flag = ~blink_flag;
+    blink_cnt += 1;
+    gpio_pin_write(LED0_GPIO_PIN, blink_flag);
+    if(blink_cnt == 4)
+    {
+        sys_timer_remove(blink_id);
+    }
+}
+
 void input_key_handler(u8 key_status, u8 key_number)
 {
     struct _switch press_switch;
-
     log_info("key_number=0x%x", key_number);
 
     if ((key_number == 0) && (key_status == KEY_EVENT_LONG)) {
@@ -965,6 +979,7 @@ void input_key_handler(u8 key_status, u8 key_number)
             .addr = 0xf000,
         };
         vendor_attr_status_send(&vendor_server_models[1], &ctx, &HardReset_msg, sizeof(HardReset_msg));
+        blink_id = sys_timer_add(NULL, led_blink, 500);
         sys_timer_add(NULL, iot_reset, 1000 * 3);
 
         return;
